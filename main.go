@@ -2,8 +2,11 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"log"
+	"net"
+	"os"
 	"sync"
 	"time"
 
@@ -87,4 +90,144 @@ func ejecutarProcesoExterno(proceso, archivo string) error {
 	time.Sleep(2 * time.Second)
 	fmt.Printf("Proceso %s completado para %s.\n", proceso, archivo)
 	return nil
+}
+
+// Estado y comandos
+
+type EstadoDirectorio struct {
+	Actual     string   `json:"actual"`     // Archivo que se esta procesando
+	Pendientes []string `json:"pendientes"` // Archivos pendientes
+}
+
+var estado = struct {
+	sync.Mutex
+	Directorio map[string]*EstadoDirectorio
+}{
+	Directorio: make(map[string]*EstadoDirectorio),
+}
+
+func ejecutarRun(directorios map[string]string) {
+	// Asegurarnos que solo un programa se ejecute
+	lockFile := "/tmp/program.lock"
+	lock, err := os.OpenFile(lockFile, os.O_CREATE|os.O_EXCL, 0600)
+	if err != nil {
+		fmt.Println("Otro proceso ya se esta ejecutando")
+		return
+	}
+	defer os.Remove(lockFile)
+	defer lock.Close()
+
+	// Iniciar servidor para status
+	go iniciarServidorStatus()
+
+	var wg sync.WaitGroup
+	for dir, proceso := range directorios {
+		wg.Add(1)
+		go func(dir, proceso string) {
+			defer wg.Done()
+			procesarDirectorio2(dir, proceso)
+		}(dir, proceso)
+	}
+
+	wg.Wait()
+	fmt.Println("Procesamiento completado")
+}
+
+func ejecutarStatus() {
+	conn, err := net.Dial("unix", "/tmp/program.sock")
+	if err != nil {
+		fmt.Println("No se pudo conectar al proceso en ejecución")
+		return
+	}
+	defer conn.Close()
+
+	_, err = conn.Write([]byte("status"))
+	if err != nil {
+		log.Fatalf("Error enviando comando status; %v", err)
+	}
+
+	buf := make([]byte, 4096)
+	n, err := conn.Read(buf)
+	if err != nil {
+		log.Fatalf("Error leyendo respuesta: %v", err)
+	}
+
+	fmt.Println("Estado actual:")
+	fmt.Println(string(buf[:n]))
+}
+
+func iniciarServidorStatus() {
+	listener, err := net.Listen("unix", "/tmp/program.sock")
+	if err != nil {
+		log.Fatalf("Error iniciando servidor de status: %v", err)
+	}
+	defer os.Remove("/tmp/program.sock")
+	defer listener.Close()
+
+	for {
+		conn, err := listener.Accept()
+		if err != nil {
+			log.Printf("Error aceptando conexión: %v", err)
+			continue
+		}
+		go manejarConexion(conn)
+	}
+}
+
+func manejarConexion(conn net.Conn) {
+	defer conn.Close()
+
+	buf := make([]byte, 256)
+	n, err := conn.Read(buf)
+	if err != nil {
+		log.Printf("Error leyendo comando: %v", err)
+		return
+	}
+
+	comando := string(buf[:n])
+	if comando == "status" {
+		estado.Lock()
+		defer estado.Unlock()
+
+		respuesta, err := json.Marshal(estado.Directorio)
+		if err != nil {
+			log.Printf("Error serializando estado: %v", err)
+			return
+		}
+
+		_, err = conn.Write(respuesta)
+		if err != nil {
+			log.Printf("Error enviando respuesta: %v", err)
+		}
+
+	}
+}
+
+// TODO Esto esta simulado
+func procesarDirectorio2(dir, proceso string) {
+	archivos := []string{"archivo1.txt", "archivo2.txt", "archivo3.txt"}
+
+	estado.Lock()
+	estado.Directorio[dir] = &EstadoDirectorio{
+		Actual:     "",
+		Pendientes: archivos,
+	}
+	estado.Unlock()
+
+	for len(archivos) > 0 {
+		estado.Lock()
+		actual := archivos[0]
+		archivos = archivos[1:]
+		estado.Directorio[dir].Actual = actual
+		estado.Directorio[dir].Pendientes = archivos
+		estado.Unlock()
+
+		fmt.Printf("Procesando %s en %s con %s...", actual, dir, proceso)
+		time.Sleep(2 * time.Second)
+		fmt.Printf("Procesado %s\n", actual)
+	}
+
+	estado.Lock()
+	delete(estado.Directorio, dir)
+	estado.Unlock()
 }
