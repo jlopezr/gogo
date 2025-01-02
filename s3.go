@@ -34,7 +34,7 @@ func ListarCarpetaS3(client *s3.Client, bucket, prefix string) error {
 func DescargarObjetoS3(client *s3.Client, bucket, key, destino string) error {
 	input := &s3.GetObjectInput{
 		Bucket: aws.String(bucket),
-		Key: aws.String(key),
+		Key:    aws.String(key),
 	}
 
 	resp, err := client.GetObject(context.TODO(), input)
@@ -73,8 +73,8 @@ func SubirObjetoS3(client *s3.Client, bucket, key, archivo string) error {
 
 	input := &s3.PutObjectInput{
 		Bucket: aws.String(bucket),
-		Key: aws.String(key),
-		Body: buffer,
+		Key:    aws.String(key),
+		Body:   buffer,
 	}
 
 	_, err = client.PutObject(context.TODO(), input)
@@ -83,5 +83,29 @@ func SubirObjetoS3(client *s3.Client, bucket, key, archivo string) error {
 	}
 
 	fmt.Printf("Archivo '%s' subido como '%s' al bucket '%s'\n", archivo, key, bucket)
+	return nil
+}
+
+func CambiarNombreObjetoS3(client *s3.Client, bucket, key string) error {
+	nuevoNombre := "*" + key //TODO Poner la * en el ultimo elemento del path
+
+	_, err := client.CopyObject(context.TODO(), &s3.CopyObjectInput{
+		Bucket:     aws.String(bucket),
+		CopySource: aws.String(bucket + "/" + key),
+		Key:        aws.String(nuevoNombre),
+	})
+	if err != nil {
+		return err
+	}
+
+	_, err = client.DeleteObject(context.TODO(), &s3.DeleteObjectInput{
+		Bucket: aws.String(bucket),
+		Key:    aws.String(key),
+	})
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Objeto '%s' renombrado a '%s' en el bucket '%s'\n", key, nuevoNombre, bucket)
 	return nil
 }
