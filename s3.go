@@ -5,6 +5,8 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 	//"github.com/aws/aws-sdk-go-v2/config"
@@ -108,4 +110,36 @@ func CambiarNombreObjetoS3(client *s3.Client, bucket, key string) error {
 
 	fmt.Printf("Objeto '%s' renombrado a '%s' en el bucket '%s'\n", key, nuevoNombre, bucket)
 	return nil
+}
+
+func listarArchivos(client *s3.Client, bucket, prefix string) ([]S3File, error) {
+	fmt.Println("Funcion en archivo s3.go")
+
+	input := &s3.ListObjectsV2Input{
+		Bucket: aws.String(bucket),
+		Prefix: aws.String(prefix),
+	}
+
+	resp, err := client.ListObjectsV2(context.TODO(), input)
+	if err != nil {
+		return nil, err
+	}
+
+	var archivos []S3File
+	for _, obj := range resp.Contents {
+		// Filtrar archivos que no empiecen por '*'
+		if !strings.HasPrefix(*obj.Key, "*") {
+			archivos = append(archivos, S3File{
+				Key:          *obj.Key,
+				LastModified: *obj.LastModified,
+			})
+		}
+	}
+
+	// Ordenar por fecha de modificacion
+	sort.Slice(archivos, func(i, j int) bool {
+		return archivos[i].LastModified.Before(archivos[j].LastModified)
+	})
+
+	return archivos, nil
 }
