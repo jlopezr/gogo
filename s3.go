@@ -4,14 +4,25 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"log"
 	"os"
 	"sort"
 	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
-	//"github.com/aws/aws-sdk-go-v2/config"
+	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
+
+func ConfigurarClienteS3(endpoint, region, accessKey, secretKey string) *s3.Client {
+	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion(region))
+	if err != nil {
+		log.Fatalf("Error cargando configuración: %v", err)
+	}
+	client := s3.NewFromConfig(cfg)
+
+	return client
+}
 
 func ListarCarpetaS3(client *s3.Client, bucket, prefix string) error {
 	fmt.Println("Funcion en archivo s3.go")

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -10,7 +9,6 @@ import (
 	"sync"
 	"time"
 
-	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 )
 
@@ -32,13 +30,9 @@ func main() {
 		fmt.Println(plugin.Execute())
 	}
 
-	cfg, err := config.LoadDefaultConfig(context.TODO(), config.WithRegion("us-east-1"))
-	if err != nil {
-		log.Fatalf("Error cargando configuración: %v", err)
-	}
-	client := s3.NewFromConfig(cfg)
+	client := ConfigurarClienteS3("", "us-east-1", "ACCESSKEY", "SECRETKEY")
 
-	err = ListarCarpetaS3(client, "mi-bucket", "mi/prefijo/")
+	err := ListarCarpetaS3(client, "mi-bucket", "mi/prefijo/")
 	if err != nil {
 		log.Fatalf("Error al listar: %v", err)
 	}
