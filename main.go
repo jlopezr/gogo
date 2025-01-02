@@ -65,13 +65,13 @@ func main() {
 }
 
 func procesarDirectorio(client *s3.Client, bucket, prefix, proceso string) error {
-	archivos, err := listarArchivos(client, bucket, prefix)
+	archivos, err := listarArchivosConPaginacion(client, bucket, prefix)
 	if err != nil {
 		return err
 	}
 
 	for _, archivo := range archivos {
-		fmt.Println("Procesando %s en %s con %s...\n", archivo.Key, prefix, proceso)
+		fmt.Printf("Procesando %s en %s con %s...\n", archivo.Key, prefix, proceso)
 		if err := ejecutarProcesoExterno(proceso, archivo.Key); err != nil {
 			log.Printf("Error procesando archivo %s: %v", archivo.Key, err)
 			continue

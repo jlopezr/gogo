@@ -113,8 +113,6 @@ func CambiarNombreObjetoS3(client *s3.Client, bucket, key string) error {
 }
 
 func listarArchivos(client *s3.Client, bucket, prefix string) ([]S3File, error) {
-	fmt.Println("Funcion en archivo s3.go")
-
 	input := &s3.ListObjectsV2Input{
 		Bucket: aws.String(bucket),
 		Prefix: aws.String(prefix),
@@ -134,6 +132,48 @@ func listarArchivos(client *s3.Client, bucket, prefix string) ([]S3File, error) 
 				LastModified: *obj.LastModified,
 			})
 		}
+	}
+
+	// Ordenar por fecha de modificacion
+	sort.Slice(archivos, func(i, j int) bool {
+		return archivos[i].LastModified.Before(archivos[j].LastModified)
+	})
+
+	return archivos, nil
+}
+
+func listarArchivosConPaginacion(client *s3.Client, bucket, prefix string) ([]S3File, error) {
+	var archivos []S3File
+	var continuationToken *string
+
+	for {
+		input := &s3.ListObjectsV2Input{
+			Bucket:            aws.String(bucket),
+			Prefix:            aws.String(prefix),
+			ContinuationToken: continuationToken,
+		}
+
+		resp, err := client.ListObjectsV2(context.TODO(), input)
+		if err != nil {
+			return nil, fmt.Errorf("error al listar objetos: %w", err)
+		}
+
+		for _, obj := range resp.Contents {
+			// Filtrar archivos que no empiecen por '*'
+			if !strings.HasPrefix(*obj.Key, "*") {
+				archivos = append(archivos, S3File{
+					Key:          *obj.Key,
+					LastModified: *obj.LastModified,
+				})
+			}
+		}
+
+		// Si no hay mas paginas salir del bucle
+		if !*resp.IsTruncated {
+			break
+		}
+
+		continuationToken = resp.NextContinuationToken
 	}
 
 	// Ordenar por fecha de modificacion
