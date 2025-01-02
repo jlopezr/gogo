@@ -1,0 +1,15 @@
+{
+    "directories": [
+        {
+            "name":"directorio1",
+            "type":"s3",
+            "bucket":"mi-bucket",
+            "prefix": "path/to/directory1/"
+        },
+        {
+            "name":"directorio2",
+            "type":"local",            
+            "path": "/local/path/to/directory2/"
+        }
+    ]
+}
