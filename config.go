@@ -7,11 +7,11 @@ import (
 )
 
 type DirectoryConfig struct {
-	Name   string `json:"name`
-	Type   string `json:"type` // "s3" or "local"
-	Bucket string `json:"bucket,omitempty`
-	Prefix string `json:"prefix,omitempty`
-	Path   string `json:"bucket,omitempty`
+	Name   string `json:"name"`
+	Type   string `json:"type"` // "s3" or "local"
+	Bucket string `json:"bucket,omitempty"`
+	Prefix string `json:"prefix,omitempty"`
+	Path   string `json:"path,omitempty"`
 }
 
 type Config struct {
